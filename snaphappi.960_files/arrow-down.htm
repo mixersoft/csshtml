@@ -1,0 +1,160 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />	<title>
+			</title>
+	<link rel="stylesheet" type="text/css" media="all" href="/css/manoj-css/reset.css" />
+	<link rel="stylesheet" type="text/css" media="all" href="/css/manoj-css/960.css" />	
+	<link rel="stylesheet" type="text/css" media="all" href="/css/manoj-css/style.css" />
+	<link rel="stylesheet" type="text/css" media="all" href="/css/manoj-css/style.1.css" />	
+	<script id='css-start' type='text/javascript'> PAGE = {jsonData:{STATE:{}, menu:{}}, init:[]}; 	ALLOY_VERSION='alloy-1.0.2';</script>
+	<script src="/svc/lib/alloy-1.0.2/build/aui/aui.js" type="text/javascript"></script>
+	<link href="/img/favicon.ico" type="image/x-icon" rel="icon" /><link href="/img/favicon.ico" type="image/x-icon" rel="shortcut icon" /><link rel="stylesheet" type="text/css" href="/css/cake.generic.css" /><link rel="stylesheet" type="text/css" href="/css/snappi-aui-960.css" /><link rel="stylesheet" type="text/css" href="/css/menu-skin.css" /></head>
+<body>
+	<div id="container" >
+		<div id="header" class="container_16">
+			<div id='logo' class='grid_4' title='snaphappi' onclick='window.location.href="/photos/all";'></div>
+			<div id='topxx' class='grid_5 push_7' >
+	<div id='menu-header' class="yui3-menu yui3-menu-horizontal">
+	<div class="yui3-menu-content">
+	<ul>
+		<li>Welcome	<a id="userAccountBtn" >Venice ▼</a>
+		</li>
+		<li><a href="#">Help</a></li>
+				<li><a href="/users/login">Sign in</a></li>
+		<li><a href="/users/register">Sign up</a></li>
+			</ul>
+	</div>
+	</div>
+</div>			<div id="search" class='grid_8'>
+<div>
+<script type="text/javascript">
+PAGE.goSearch = function(o) {
+	
+	var value = SNAPPI.Y.one('#search input').get('value');
+	if (value) {
+		if (value.length>2) {
+			o.href = SNAPPI.IO.setNamedParams(o.href, {q:value});
+			return true;
+		} else {
+			alert('please enter at least 3 chars in your search');
+		}
+	}  
+	return false;
+};
+
+
+</script>
+
+<script>
+</script>
+	<form id='search-form' accept-charset="utf-8" method="get" action="/css/search" onsubmit="if (this.value=='') return false;" >
+		<input type='text' name='q' value='search' maxlength='45' title='' onclick='if(this.style.color!="black"){this.value="";}this.style.color="black";' ></input>
+	</form>
+	</div>
+<div id='menu-search' class="yui3-menu yui3-menu-horizontal">
+	<div class="yui3-menu-content">
+	<ul>
+		<li>
+ 		<a id='searchBtn' >Search ▼</a>
+		</li>
+		<li><a id='discoverBtn' >Discover ▼</a>
+
+		</li> 
+	</ul>
+	</div>
+</div>
+</div>			<!-- 
+			<div id="search"><input type='text' value=' search' title='not ready yet' > </input><a href='#'>Search</a> | <a href='#'>Discover</a></div>
+			 -->
+		</div>
+		<div id="content" class="container_16">
+												<h2>Missing Controller</h2>
+<p class="error">
+	<strong>Error: </strong>
+	<em>CssController</em> could not be found.</p>
+<p class="error">
+	<strong>Error: </strong>
+	Create the class <em>CssController</em> below in file: app\controllers\css_controller.php</p>
+<pre>
+&lt;?php
+class CssController extends AppController {
+
+	var $name = 'Css';
+}
+?&gt;
+</pre>
+<p class="notice">
+	<strong>Notice: </strong>
+	If you want to customize this error message, create app\views\errors\missing_controller.ctp</p>			<script type="text/javascript">
+PAGE.jsonData.filter=[];
+PAGE.jsonData.menu={"discover":[{"label":"Discover Groups","href":"\/groups\/all"},{"label":"Discover People","href":"\/person\/all"},{"label":"Discover Photos","href":"\/photos\/all"},{"label":"Discover Tags","href":"\/tags\/all"}],"search":[{"label":"Search My","href":"\/my\/search","onclick":"return PAGE.goSearch(this);"},{"label":"Search Groups","href":"\/groups\/search","onclick":"return PAGE.goSearch(this);"},{"label":"Search People","href":"\/person\/search","onclick":"return PAGE.goSearch(this);"},{"label":"Search Photos","href":"\/photos\/search","onclick":"return PAGE.goSearch(this);"},{"label":"Search Tags","href":"\/tags\/search","onclick":"return PAGE.goSearch(this);"}]};
+PAGE.jsonData.controller=null;
+</script>
+			
+		</div>
+		<div id='markup' >
+			<div id="menu-header-markup" class="menu yui3-aui-overlaycontext-hidden hide">
+				<ul>
+					<li action='home' >
+						<a href="/my/home">My Home</a>
+					</li>
+					<li action='photos' >
+						<a href="/my/photos">My Photos</a>
+					</li>
+					<li action='photostreams' >
+						<a href="/my/photostreams">My Photostreams</a>
+					</li>		
+					<li action='groups' >
+						<a href="/my/groups">My Groups</a>
+					</li>			
+					<li action='trends' >
+						<a href="/my/home#trends">My Trends</a>
+					</li>
+					<li action='upload' >
+						<a href="/my/upload">Upload Photos</a>
+					</li>
+					<li action='settings' >
+						<a href="/my/settings">My Settings</a>
+					</li>
+					<li action='lightbox' class='before-show'>
+						<a href="javascript:;">Hide Lightbox</a>
+					</li>
+				</ul>
+			</div>		
+		</div>		
+		<div id="footer" class="container_16">
+			<span style="font-size:0.8em;vertical-align:text-top;">&copy; 2008-2010 Snaphappi</span>
+			<a href="http://www.cakephp.org/" target="_blank"><img src="/img/cake.power.gif" alt="CakePHP: the rapid development php framework" border="0" /></a>		</div>
+	</div>
+	<table class="cake-sql-log" id="cakeSqlLog_13148612294e5f30adcff509_69495685" summary="Cake SQL Log" cellspacing="0" border = "0"><caption>(default) 24 queries took 165 ms</caption>	<thead>
+		<tr><th>Nr</th><th>Query</th><th>Error</th><th>Affected</th><th>Num. rows</th><th>Took (ms)</th></tr>
+	</thead>
+	<tbody>
+	<tr><td>1</td><td>SHOW FULL COLUMNS FROM `users`</td><td></td><td style = "text-align: right">18</td><td style = "text-align: right">18</td><td style = "text-align: right">5</td></tr>
+<tr><td>2</td><td>SELECT CHARACTER_SET_NAME FROM INFORMATION_SCHEMA.COLLATIONS WHERE COLLATION_NAME= &#039;utf8_unicode_ci&#039;;</td><td></td><td style = "text-align: right">1</td><td style = "text-align: right">1</td><td style = "text-align: right">4</td></tr>
+<tr><td>3</td><td>SHOW FULL COLUMNS FROM `groups`</td><td></td><td style = "text-align: right">18</td><td style = "text-align: right">18</td><td style = "text-align: right">7</td></tr>
+<tr><td>4</td><td>SHOW FULL COLUMNS FROM `profiles`</td><td></td><td style = "text-align: right">27</td><td style = "text-align: right">27</td><td style = "text-align: right">9</td></tr>
+<tr><td>5</td><td>SHOW FULL COLUMNS FROM `assets`</td><td></td><td style = "text-align: right">26</td><td style = "text-align: right">26</td><td style = "text-align: right">8</td></tr>
+<tr><td>6</td><td>SHOW FULL COLUMNS FROM `provider_accounts`</td><td></td><td style = "text-align: right">9</td><td style = "text-align: right">9</td><td style = "text-align: right">20</td></tr>
+<tr><td>7</td><td>SHOW FULL COLUMNS FROM `groupshots`</td><td></td><td style = "text-align: right">4</td><td style = "text-align: right">4</td><td style = "text-align: right">4</td></tr>
+<tr><td>8</td><td>SHOW FULL COLUMNS FROM `best_groupshots`</td><td></td><td style = "text-align: right">5</td><td style = "text-align: right">5</td><td style = "text-align: right">5</td></tr>
+<tr><td>9</td><td>SHOW FULL COLUMNS FROM `assets_groupshots`</td><td></td><td style = "text-align: right">3</td><td style = "text-align: right">3</td><td style = "text-align: right">6</td></tr>
+<tr><td>10</td><td>SHOW FULL COLUMNS FROM `collections`</td><td></td><td style = "text-align: right">9</td><td style = "text-align: right">9</td><td style = "text-align: right">9</td></tr>
+<tr><td>11</td><td>SHOW FULL COLUMNS FROM `assets_collections`</td><td></td><td style = "text-align: right">5</td><td style = "text-align: right">5</td><td style = "text-align: right">4</td></tr>
+<tr><td>12</td><td>SHOW FULL COLUMNS FROM `collections_groups`</td><td></td><td style = "text-align: right">6</td><td style = "text-align: right">6</td><td style = "text-align: right">4</td></tr>
+<tr><td>13</td><td>SHOW FULL COLUMNS FROM `auth_accounts`</td><td></td><td style = "text-align: right">19</td><td style = "text-align: right">19</td><td style = "text-align: right">5</td></tr>
+<tr><td>14</td><td>SHOW FULL COLUMNS FROM `user_edits`</td><td></td><td style = "text-align: right">21</td><td style = "text-align: right">21</td><td style = "text-align: right">5</td></tr>
+<tr><td>15</td><td>SHOW FULL COLUMNS FROM `usershots`</td><td></td><td style = "text-align: right">4</td><td style = "text-align: right">4</td><td style = "text-align: right">4</td></tr>
+<tr><td>16</td><td>SHOW FULL COLUMNS FROM `best_usershots`</td><td></td><td style = "text-align: right">5</td><td style = "text-align: right">5</td><td style = "text-align: right">5</td></tr>
+<tr><td>17</td><td>SHOW FULL COLUMNS FROM `assets_usershots`</td><td></td><td style = "text-align: right">3</td><td style = "text-align: right">3</td><td style = "text-align: right">4</td></tr>
+<tr><td>18</td><td>SHOW FULL COLUMNS FROM `assets_groups`</td><td></td><td style = "text-align: right">7</td><td style = "text-align: right">7</td><td style = "text-align: right">6</td></tr>
+<tr><td>19</td><td>SHOW FULL COLUMNS FROM `groups_users`</td><td></td><td style = "text-align: right">9</td><td style = "text-align: right">9</td><td style = "text-align: right">5</td></tr>
+<tr><td>20</td><td>SHOW FULL COLUMNS FROM `groups_provider_accounts`</td><td></td><td style = "text-align: right">4</td><td style = "text-align: right">4</td><td style = "text-align: right">4</td></tr>
+<tr><td>21</td><td>SHOW FULL COLUMNS FROM `tags`</td><td></td><td style = "text-align: right">9</td><td style = "text-align: right">9</td><td style = "text-align: right">10</td></tr>
+<tr><td>22</td><td>SHOW FULL COLUMNS FROM `tagged`</td><td></td><td style = "text-align: right">8</td><td style = "text-align: right">8</td><td style = "text-align: right">14</td></tr>
+<tr><td>23</td><td>SHOW FULL COLUMNS FROM `metadata`</td><td></td><td style = "text-align: right">10</td><td style = "text-align: right">10</td><td style = "text-align: right">10</td></tr>
+<tr><td>24</td><td>SHOW FULL COLUMNS FROM `shared_edits`</td><td></td><td style = "text-align: right">6</td><td style = "text-align: right">6</td><td style = "text-align: right">8</td></tr>
+	</tbody></table>
+		</body>
+</html>
