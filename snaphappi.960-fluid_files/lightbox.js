@@ -36,7 +36,7 @@
 		deletePatt : /(^46$)/
 	// del
 	};
-	var _LIGHTBOX_LIMIT = 50;
+	var _LIGHTBOX_LIMIT = 72;
 	var _LIGHTBOX_FULL_PAGE_LIMIT = 999;
 	var _LIGHTBOX_MIN_HEIGHT = 100;
 	var _LIGHTBOX_MIN_WIDTH = 400;
@@ -140,22 +140,11 @@
 			this._cfg = Y.merge(defaultCfg, cfg);
 			this.node = Y.one('section.lightbox');
 			if (this.node) {
-				var check;
 				// rendered from cakePHP: app/views/elements/lightbox.ctp
-				this.addToolbar(this.node.one('ul.toolbar'));
-			} else { // create from script
-				var MARKUP = "<section id='lightbox' class='lightbox drop placeholder'>" + 
-								"<ul class='toolbar inline'></ul>" +
-								"<nav class='prev'>&lt</nav>" +
-								"<div class='gallery-container'>" + 
-								"<section class='gallery photo lightbox'>"+
-									"<div class='container'></div>" +
-								"</section></div>" +
-								"<nav class='next right'>&gt</nav>" +
-							"</section>";
-				this.node = Y.Node.create(MARKUP);
-				this.addToolbar(this.node.one('ul.toolbar'));
-				Y.one('#content').append(this.node);
+			} else { 
+				// load/create lightbox asynchronously 
+				this.getMarkup(cfg);
+				return;
 			};
 			this.node.Lightbox = this;
 			// plugin droppables
@@ -164,11 +153,48 @@
 			this.restoreLightboxFromJson();	// lightbox.visible, lightbox.regionAsJSON
 //			this.yui2_plugResizeAndDrag.call(this, this.node);	// yui2 lightbox resize and drag	
 			this.plugResizeAndDrag.call(this, this.node);		// yui3 lightbox resize and drag			
-			var check;
+			var createCfg = {
+				align: { points:['bl', 'tl'] },
+				trigger: 'section#lightbox ul.menu-trigger li.create'
+			};
+			SNAPPI.MenuAUI.initMenus({
+				'menu-select-all-markup':1,
+				'menu-lightbox-organize-markup': 1,
+				'menu-lightbox-share-markup':1,
+				'menu-pagemaker-selected-create-markup': createCfg
+			});
 			
 			SNAPPI.Lightbox.instance = this;	// singleton class
 			Y.fire('snappi:lightbox-afterLoad');
 		},
+	/**
+	 * load lightbox markup
+	 * @param cfg
+	 * @return
+	 */
+	getMarkup : function(cfg){
+		var Y = SNAPPI.Y;
+		var CSS_ID = 'lightbox-markup';
+		var MARKUP = {
+				id: CSS_ID,
+				selector: '#'+CSS_ID,
+				container: Y.one('#markup'),
+				uri: '/combo/markup/lightbox',
+				end: null
+		};
+		
+		var callback = function(){
+			// move markup from #markup to dest
+			var parent = Y.one('.anchor-bottom');
+			if (parent) {
+				parent.prepend(Y.one('section#lightbox'));
+			} else {
+				if (console) console.error('Mission .anchor-bottom for lightbox markup');
+			}
+			this.init.apply(this, MARKUP, TRIGGER, cfg);
+		};
+		return SNAPPI.MenuAUI.getMarkup(MARKUP , callback);
+	},
     		
 	    	/*
 	    	 * this is used to remove the existing options to click on the submenu.
@@ -218,9 +244,9 @@
 	                }
 	                if (this.listener.toolbar == undefined) {
 	                    // this.listener.toolbar = this.node.one('ul.toolbar').delegate('click', this.handleClick, 'li.button', this);
-	                	this.listener.toolbar = this.node.one('ul.toolbar').delegate('click', this.handleClick, 'a.button', this);
+	                	this.listener.toolbar = this.node.one('nav.toolbar').delegate('click', this.handleClick, 'ul > li', this);
 	                	// listen clicking on toolbar button's submenu
-	                	this.listener.toolbarUL = this.node.one('ul.toolbar').delegate('click', this.handleClick, 'ul li', this);
+	                	this.listener.options = this.node.one('nav.window-options').delegate('click', this.handleClick, 'ul > li', this);
 	                }
 	            }
 	            else {
@@ -270,8 +296,14 @@
 						var castingCall = o.responseJson.castingCall;
 						this.renderLightboxFromCC.call(this, castingCall);
 						this.save();
+						this.updateCount();	
 						onComplete.call(this, nodeList); // clear selected items
 						SNAPPI.STATE.selectAllPages = false;
+						// reset .gallery-container li.select-all .checkbox
+						try {
+							var cb = SNAPPI.Y.one('.gallery-container li.select-all .checkbox');
+							cb.set('checked', false);
+						} catch (e) {}
 					}
 				};
 				SNAPPI.domJsBinder.fetchCastingCall.call(this, {
@@ -303,7 +335,7 @@
 				}	
 				// nodeList of img from drag-drop
 				nodeList.each(function(n, i, l) {
-					var audition = n.ancestor('.FigureBox').dom().audition;
+					var audition = n.ancestor('.FigureBox').audition;
 					this.Gallery.auditionSH.add(audition);
 				}, this);
 				
@@ -311,10 +343,22 @@
 					page : 1,
 					perpage : LIMIT
 				});
+
+				// reset .gallery-container li.select-all .checkbox
+				try {
+					var cb = SNAPPI.Y.one('.gallery-container li.select-all input[type="checkbox"]');
+					cb.set('checked', false);
+				} catch (e) {}
 	            
-				this.save();					
+				this.save();
+				this.updateCount();					
 				return lastLI;
 			}
+		},
+		updateCount: function() {
+			var count = this.Gallery.auditionSH.count();
+			var label = count==1 ? '1 Snap' : count+" Snaps"; 
+			this.node.one('.header .count').set('innerHTML', label);
 		},
 		getSelected : function() {
 			var auditionSH,			// return sortedHash, allows auditionSH.each() maintains consistency
@@ -329,10 +373,10 @@
 				if(auditionSH.size() == 0){ // no photos in lightbox
 					return false;
 				}
-			}else { // this uses visible selected only, probably less common use case
+			} else { // this uses visible selected only, probably less common use case
 				auditionSH = new SNAPPI.SortedHash();
 				batch.each(function(node){
-					auditionSH.add(node.dom().audition);
+					auditionSH.add(node.audition);
 				});
 			}
 			return auditionSH;
@@ -607,6 +651,7 @@
 	            	ID_PREFIX: this._cfg.ID_PREFIX,	
 	            	node:  this.node.one('section.gallery.photo'), 
 	            	shots: castingCall.shots,
+	            	// castingCall: castingCall,
 		            end: null                		
 	            };
 	            switch (SNAPPI.STATE.controller.action) {
@@ -705,10 +750,12 @@
 			}
 		},
 		onClearLightbox : function() {
-			// reset rating component to 0
-			try {
-				this.node.one('#lbx-rating').Rating.render(0);
-			} catch (e) {}
+			// Lightbox Organize > rating is reset in beforeShow
+			if (console) console.warn("Lightbox.onClearLightbox is deprecated");
+			// // reset rating component to 0
+			// try {
+				// this.node.one('#lbx-rating').Rating.render(0);
+			// } catch (e) {}
 		},
 		selectAll : function() {
 			SNAPPI.multiSelect.selectAll(this.Gallery.container);
@@ -734,7 +781,7 @@
 					// TODO: close organize menu, show flash msg
 				}
 			};
-            SNAPPI.shotController.postGroupAsShot.call(this, post_aids, callback);
+            SNAPPI.shotController.xxxpostGroupAsShot.call(this, post_aids, callback);
 		},
 		onGroupAsShotComplete : function (shot, resp){
 			SNAPPI.flash.flash(resp.message);
@@ -803,12 +850,14 @@
 			/*******************************************************************
 			 * add set Rating for thumbnail from lightbox
 			 */
-			var _applyOneRating = function(audition, r) {
+			var _applyOneRating = function(audition, value) {
 				try {
-					audition.rating = r;
+					audition.rating = value;
 					audition.bindTo[0].Rating.onClick(audition.rating, false);	// onscreen, Rating exists
 				} catch (e) {
-					SNAPPI.AssetRatingController.postRating.call(audition.bindTo[0].dom(), r, audition.id); 	// offscreen
+					// SNAPPI.AssetRatingController.postRating.call(audition.bindTo[0].dom(), value, audition.id); 	// offscreen
+					var node = audition.bindTo[0];
+					SNAPPI.AssetRatingController.postRating( value, audition.id, node.Rating, null); 	// offscreen
 				}
 			};
 
@@ -816,16 +865,11 @@
 				_applyOneRating(audition, v);
 			});
 		},
-		applyRatingInBatch : function(v) {
-			// toggle show Ratings on existing photoRoll
-			var pr = Y.one('section.gallery.photo > div');
-			if (pr && pr.Gallery) pr.Gallery.toggleRatings(null, 'show');
-			
+		applyRatingInBatch : function(v, node) {
+
 			var self;
-			if (this && this.applyRatingInBatch)
-				self = this;
-			else
-				self = SNAPPI.lightbox;
+			if (this instanceof SNAPPI.Lightbox) self = this;
+			else self = SNAPPI.lightbox;
 
 			var batch = self.getSelected();
 
@@ -833,8 +877,8 @@
 			batch.each(function(audition) {
 				asset_ids.push(audition.id);
 			});
-			var button = self.node.one('#lbx-rating');
-			SNAPPI.AssetRatingController.postRating.call(button, v, asset_ids.join(','));
+			node = node || SNAPPI.Y.one('#lbx-rating .ratingGroup'); // .ratingGroup 
+			SNAPPI.AssetRatingController.postRating(v, asset_ids.join(','), node.Rating, null);
 		},
 		/*
 		 * Tags
@@ -842,19 +886,18 @@
 		renderTagInput : function(node) {
 			// TODO: for now, just add to the button. later, render in subMenu
 			var nTagForm = Y.Node
-					.create("<span><form id='lbx-tag-form' onsubmit='return false;' /><input id='lbx-tag-field' type='text' size='20' maxlength='255' value='Enter tags' onclick='this.value=null; this.style.color=\"black\";'><input type='submit' value='Go' onclick='SNAPPI.lightbox.applyTagInBatch(this);return false;'/></form></span>");
+					.create("<span><form id='lbx-tag-form' onsubmit='return false;' /><input id='lbx-tag-field' class='help' type='text' size='20' maxlength='255' value='Enter tags' onclick='this.value=null; this.className=null;'><input type='submit' value='Go' onclick='SNAPPI.lightbox.applyTagInBatch(this);return false;'/></form></span>");
 			node.append(nTagForm);
 		},
 		applyTagInBatch : function(submit) {
-			var text = submit.ynode().previous('input');
+			var parent = submit.ynode().ancestor('form');
+			var text = parent.one('input#lbx-tag-field');
 			var tag = text.get('value');
 
 			// post Tags
 			var self;
-			if (this && this.applyTagInBatch)
-				self = this;
-			else
-				self = SNAPPI.lightbox;
+			if (this instanceof SNAPPI.Lightbox) self = this;
+			else self = SNAPPI.lightbox;
 
 			var batch = self.getSelected();
 
@@ -867,31 +910,52 @@
 				'data[Asset][id]' : asset_ids,
 				'data[Asset][tags]' : tag
 			};
-			var closure = {
-				node : this,
+			var args = {
+				node : parent,
 				tag : tag
 			};
-			var callback = {
-				complete : function(id, o, args) {
-					if (o.responseJson && o.responseJson.success=='true') {
-						// TODO: move to callback
-						SNAPPI.lightbox.onTagSaved(closure, o.responseJson.message);
+			// use Plugin to add io request and loadingmask
+			var loadingNode = parent;
+			if (loadingNode.io == undefined) {
+				var ioCfg = SNAPPI.IO.pluginIO_RespondAsJson({
+					uri: uri ,
+					parseContent:true,
+					method: 'POST',
+					qs: data,
+					dataType: 'json',
+					context: self,	
+					arguments: args, 
+					on: {
+						successJson:  function(e, id, o, args) {
+							var msg = o.responseJson.message;
+							this.onTagSaved(args, msg);
+							return false;
+							// return args.success.apply(this, arguments);
+						}
 					}
-				}
-			};
-			SNAPPI.io.post(uri, data, callback);
+				});
+	            loadingNode.plug(Y.Plugin.IO, ioCfg );
+			} else {
+				loadingNode.io.set('data', data);
+				loadingNode.io.set('context', self);
+				loadingNode.io.set('uri', uri);
+				loadingNode.io.set('arguments', args);
+				loadingNode.io.start();
+	        }			
+			
+			// SNAPPI.io.post(uri, data, callback);
 			return false;
 		},
 		onTagSaved : function(cfg, message) {
+			// use 'snappi:photo-propertyChanged'
 			var n = cfg.node;
 			var tag = cfg.tag;
-
+			if (n.loadingmask) n.loadingmask.hide();
 			/*
 			 * just reload for now - this will show the Session->flash from the
 			 * Tag save - reload tagCloud with updated tags - update auditions
 			 * with tags BUT: - this will reset paging
 			 */
-			SNAPPI.flash.flash(message);
 //			window.location.reload();
 		},
 		/*
@@ -988,56 +1052,64 @@
 
             node.append(nShare);
         },
- 		applyShareInBatch : function(gid) {
-	    	if(!gid) {
-	    		if (SNAPPI.STATE.controller.keyName == "group") gid = SNAPPI.STATE.controller.xhrFrom.uuid;
-	        }
-	
-			// post Tags
-			var self;
-			if (this && this.applyShareInBatch)
-				self = this;
-			else
-				self = SNAPPI.lightbox;
-	
+        applyShareInBatch : function(gid, loading, options) {
+        	var self;
+			if (this instanceof SNAPPI.Lightbox) self = this;
+			else self = SNAPPI.lightbox;
+			
 			var batch = self.getSelected();
 	
 			var asset_ids = [];
 			batch.each(function(audition) {
 				asset_ids.push(audition.id);
 			});
-			/***********************************************************************
-			 * add assets to Group - cakePHP POST
-			 */
-			var _shareWithGroup = function(g, assets) {
-				var uri = "/groups/contributePhoto/.json";
-				var data = {
-					'data[Group][id]' : g,
-					'data[Asset][id]' : assets
-				};
-				var callback = {
-					complete: function(id, o, args){
-		                if (o.responseJson && o.responseJson.success == 'true') {
-		                	SNAPPI.lightbox.onShareGroupComplete(args.gid, o.responseJson.message);
-		                }
-		                var check;
-		            },
-					failure : function(id, o, args) {
-						var check;
-					}
-				};
-				var arguments = {
-					gid : g
-				};
-				SNAPPI.io.post(uri, data, callback, arguments);
+						
+			var uri = "/groups/contributePhoto/.json";
+			var data = {
+				'data[Group][id]' : gid,
+				'data[Asset][id]' : asset_ids
 			};
-			_shareWithGroup(gid, asset_ids);
-			var check;
-		},
+			
+			/*
+			 * adjustments for 'remove from group'
+			 */
+			if (options && options.uri) uri = options.uri;	// for unshare link
+			if (options && options.data) data = SNAPPI.Y.merge(data, options.data);
+			
+			var args = {
+				gid: gid
+			};
+			// use Plugin to add io request and loadingmask
+			var loadingNode = loading;
+			if (loadingNode.io == undefined) {
+				var ioCfg = SNAPPI.IO.pluginIO_RespondAsJson({
+					uri: uri ,
+					parseContent:true,
+					method: 'POST',
+					qs: data,
+					dataType: 'json',
+					context: self,	
+					arguments: args, 
+					on: {
+						successJson:  function(e, id, o, args) {
+							SNAPPI.Y.fire('snappi:share-complete', this, loadingNode);
+							this.onShareGroupComplete(args.gid, o.responseJson.message);
+						}
+					}
+				});
+	            loadingNode.plug(Y.Plugin.IO, ioCfg );
+			} else {
+				loadingNode.io.set('data', data);
+				loadingNode.io.set('context', self);
+				loadingNode.io.set('uri', uri);
+				loadingNode.io.set('arguments', args);
+				loadingNode.io.start();
+	        }			
+        },
 		onShareGroupComplete : function(gid, flash) {
 			// go to group
 			SNAPPI.flash.setFlashOnReload(flash);
-			window.location.href = '/groups/home/' + gid;
+			// window.location.href = '/groups/home/' + gid;
 		},
 	
 		/*
@@ -1275,22 +1347,11 @@
 	
 			node.append(nPrivacy);
 		},
-		applyPrivacyInBatch : function(submit) {
-			var select = submit.ynode().previous('select');
-			var v;
-			var option = select.all('option').some(function(n, i, l) {
-				var selected = n.get('selected');
-				if (selected)
-					v = n.get('value');
-				return selected;
-			}, this);
-	
-			// post Tags
-			var self;
-			if (this && this.applyPrivacyInBatch)
-				self = this;
-			else
-				self = SNAPPI.lightbox;
+		applyPrivacyInBatch : function(value, loading) {
+			// post 
+        	var self;
+			if (this instanceof SNAPPI.Lightbox) self = this;
+			else self = SNAPPI.lightbox;
 	
 			var batch = self.getSelected();
 	
@@ -1303,22 +1364,38 @@
 			 */
 			var uri = "/photos/setprop/.json";
 			var data = {
-				'data[Asset][privacy]' : v,
+				'data[Asset][privacy]' : value,
 				'data[Asset][id]' : asset_ids.join(',')
 			};
-			var callback = {
-				complete : function(id, o, args) {
-					var check;
-					if (o.responseJson && o.responseJson.success == 'true')  {
-						SNAPPI.lightbox.onPrivacyGroupComplete(args.privacy, o.responseJson);
+			var args = {
+				privacy : value
+			};
+			// use Plugin to add io request and loadingmask
+			var loadingNode = loading;
+			if (loadingNode.io == undefined) {
+				var ioCfg = SNAPPI.IO.pluginIO_RespondAsJson({
+					uri: uri ,
+					parseContent:true,
+					method: 'POST',
+					qs: data,
+					dataType: 'json',
+					context: self,	
+					arguments: args, 
+					on: {
+						successJson:  function(e, id, o, args) {
+							SNAPPI.Y.fire('snappi:privacy-complete', this, loadingNode);
+							SNAPPI.lightbox.onPrivacyGroupComplete(args.privacy, o.responseJson);
+						}
 					}
-				}
-			};
-			var arguments = {
-				privacy : v
-			};
-			SNAPPI.io.post(uri, data, callback, arguments);
-			var check;
+				});
+	            loadingNode.plug(Y.Plugin.IO, ioCfg );
+			} else {
+				loadingNode.io.set('data', data);
+				loadingNode.io.set('context', self);
+				loadingNode.io.set('uri', uri);
+				loadingNode.io.set('arguments', args);
+				loadingNode.io.start();
+	        }			
 		},
 		onPrivacyGroupComplete : function(privacy, resp) {
 			// go to group
@@ -1378,9 +1455,97 @@
 			}
 		},
 		handleClick : function(e) {
-			var action = e.target.getAttribute('action');
+			var action = e.currentTarget.getAttribute('action');
 			if (action) {
-				this[action].call(this, e);
+				e.currentTarget.get('parentNode').all('li').removeClass('focus');
+				this.action[action].call(this, e);
+			}
+		},
+		action: {
+			// hide lightbox
+			minimize: function(e){
+				this.Gallery.container.ancestor('.filmstrip-wrap').addClass('hide');
+				e.currentTarget.addClass('focus');
+			},
+			// HScroll thumbnails, 1 row only
+			filmstrip: function(e){
+				// set width in pixels for 1 line
+				var count = Math.min(this.Gallery.auditionSH.count(), _LIGHTBOX_LIMIT);
+				var width = this.Gallery.container.one('.FigureBox').get('offsetWidth');
+				this.Gallery.container.setStyles({
+					width: (width*count)+'px',
+					height: 'auto'	
+				});
+				this.Gallery.container.ancestor('.filmstrip-wrap').removeClass('hide');
+				if (e) e.currentTarget.addClass('focus');
+			},
+			// VScroll thumbnails
+			maximize: function(e) {
+				var MAX_HEIGHT = window.innerHeight - 120;
+				var count = Math.min(this.Gallery.auditionSH.count(), _LIGHTBOX_LIMIT);
+				var width = this.Gallery.container.one('.FigureBox').get('offsetWidth');
+				var rows = Math.ceil(count*width/940);
+				var height = this.Gallery.container.one('.FigureBox').get('offsetHeight');
+				if (rows*height > MAX_HEIGHT) {
+					rows = Math.floor(MAX_HEIGHT/height);
+					height = (rows*height)+'px';
+				} else {
+					height = 'auto';
+				}
+				this.Gallery.container.setStyles({
+					width: 'auto',
+					height: height	
+				});
+				this.Gallery.container.ancestor('.filmstrip-wrap').removeClass('hide');
+				e.currentTarget.addClass('focus');
+			},
+			'set-display-size' : function(e) {
+				var srcSize, displaySize;
+				// displaySize: [lbx-tiny | sq | lm], also "summary"
+				try {
+					displaySize = e.currentTarget.getAttribute('size');	
+				} catch (e) {
+					try {
+						displaySize = SNAPPI.STATE.lightbox.displaySize;
+					} catch (e) {}
+				}
+				displaySize = displaySize || 'lbx-tiny';
+				srcSize = this.Gallery._cfg.size;
+				if (displaySize == 'summary') {
+					// show cover thumbnail only, plus summary description
+				} else { 
+					switch (srcSize+'+'+displaySize) {
+						case "sq+lbx-tiny": 
+						case "sq+sq":
+						case "lm+lm":
+							// do nothing
+							break;
+						case "lm+lbx-tiny":
+						case "lm+sq":
+							// convert thumbnails from lm > sq
+							this.Gallery.renderThumbSize('sq');
+							break;						
+						case "sq+lm":
+							// convert thumbnails from sq > lm
+							this.Gallery.renderThumbSize('lm');
+							break;
+					};
+				}
+				// use class to set displaySize to lbx-tiny
+				if (displaySize == 'lbx-tiny') {
+					this.Gallery.container.all(".FigureBox").addClass('lbx-tiny');
+				} else this.Gallery.container.all(".FigureBox").removeClass('lbx-tiny');
+				
+				// set container to fit new displaySize, i.e. filmstrip mode
+				if ( this.Gallery.container.getStyle('width') == 'auto') {
+					this.action.maximize.apply(this, null);
+				} else {
+					this.action.filmstrip.apply(this, null);
+				};
+				
+				// set focus
+				e.currentTarget.get('parentNode').all('li').removeClass('focus');
+		        e.currentTarget.addClass('focus');
 			}
 		},
 		plugResizeAndDrag : function(node) {

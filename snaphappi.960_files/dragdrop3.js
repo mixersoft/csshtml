@@ -70,7 +70,7 @@
 	                	return;
 	                default: // thumbnail
 	                	try {
-			                target.ancestor('section').addClass('selected');
+			                target.ancestor('.FigureBox').addClass('selected');
 			                
 			                //How many items are selected
 			                var count;
@@ -276,7 +276,7 @@
                 moveOnEnd: false,
                 borderStyle: 'none'
             });
-            
+            var check;
         };
         /*
          * add Drag Plugin to element, use delegated event listener
@@ -291,6 +291,7 @@
                 moveOnEnd: false,
                 borderStyle: 'none'
             });
+            var check;
         };
         
         /*

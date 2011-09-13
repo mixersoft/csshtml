@@ -94,11 +94,12 @@ var DEFAULT_CFG_contextmenu = 	{
 				'menu-header-markup': SNAPPI.STATE.controller.userid,	// authenticated
 				end: 0
 		};
-		menus = SNAPPI.Y.merge(defaultMenus, menus);
+		menus = Y.merge(defaultMenus, menus);
 		for (var i in menus) {
 			var CSS_ID = menus[i] ? i : null; 
+			var cfg = Y.Lang.isObject(menus[i]) ? menus[i] : null;
 	    	if (CSS_ID && !SNAPPI.MenuAUI.find[CSS_ID]) {
-	    		SNAPPI.MenuAUI.CFG[CSS_ID].load();
+	    		SNAPPI.MenuAUI.CFG[CSS_ID].load(cfg);
 	    	}			
 		}
 	};	
@@ -161,6 +162,10 @@ var DEFAULT_CFG_contextmenu = 	{
 		if (!menu.listen['delegate_click']) {
 			menu.listen['delegate_click'] = parent.delegate('click', function(e){
 				var menuItem = e.currentTarget;
+				if (menuItem.hasClass('disabled')) {
+					e.preventDefault();
+					return;
+				} 
 				var methodName = menuItem.getAttribute('action')+'_click';
 				if (MenuItems[methodName]) {
 					e.preventDefault();
@@ -180,7 +185,11 @@ var DEFAULT_CFG_contextmenu = 	{
 			// call beforeShow for each menuItem
 			if (n.hasClass('before-show')) {
 				var methodName = n.getAttribute('action')+'_beforeShow';
-				if (MenuItems[methodName]) MenuItems[methodName](n, menu);
+				if (MenuItems[methodName]) {
+					try {
+						MenuItems[methodName](n, menu);	
+					} catch (e) {}
+				}
 			}
 		}, menu);
 	};
@@ -221,8 +230,79 @@ var DEFAULT_CFG_contextmenu = 	{
 	SNAPPI.MenuAUI = Menu;
 	
 	
-	var MenuItems = function(){}; MenuItems.prototype = {};
-	
+	var MenuItems = function(){}; 
+	MenuItems.select_all_pages_beforeShow = function(menuItem, menu){
+		var target = menu.get('currentNode');	// target
+		// gallery only, not lighbox
+		try {
+			var isPaged = target.ancestor('.gallery-container').one('.aui-paginator-container');
+			if (!isPaged) {
+				if (SNAPPI.STATE.selectAllPages == true) {
+					menuItem.addClass('selected');
+				} else menuItem.removeClass('selected');
+			}
+			menuItem.removeClass('hide');
+		} catch(e) {
+			menuItem.addClass('hide');
+		}
+	};	
+	MenuItems.select_all_pages_click = function(menuItem, menu){
+		MenuItems.select_all_click(menuItem, menu);
+		SNAPPI.STATE.selectAllPages = true;
+		menuItem.addClass('selected');
+		menu.hide();
+	};		
+	MenuItems.select_all_click = function(menuItem, menu){
+		var target = menu.get('currentNode');	// target
+		var cb = target.previous('input[type="checkbox"]');
+		if (cb) {
+			cb.set('checked', true);
+			var gallery = cb.ancestor('section').next('section.gallery');
+			gallery.Gallery.container.all('.FigureBox').addClass('selected');
+		}
+		try {
+			target.ancestor('section#lightbox').Lightbox.save();
+		} catch (e) {}
+		menu.hide();
+	};
+	MenuItems.clear_all_click = function(menuItem, menu){
+		var target = menu.get('currentNode');	// target
+		var cb = target.previous('input[type="checkbox"]');
+		if (cb) {
+			cb.set('checked', false);
+			var gallery = cb.ancestor('section').next('section.gallery');
+			gallery.Gallery.container.all('.FigureBox').removeClass('selected');
+		}		
+		SNAPPI.STATE.selectAllPages = false;
+		try {
+			menuItem.previous('.selected').removeClass('selected');
+			target.ancestor('section#lightbox').Lightbox.save();
+		} catch (e) {}
+		menu.hide();
+	};
+	MenuItems.remove_selected_beforeShow = function(menuItem, menu){
+		try {
+			var target = menu.get('currentNode');	// target
+			var lightbox = target.ancestor('section#lightbox').Lightbox;
+			var isSelected = lightbox.Gallery.container.all('.selected');
+			var label = isSelected.size() ? 'Remove Selected Snaps': 'Remove All Snaps';
+			menuItem.set('innerHTML', label);
+			menuItem.removeClass('hide');
+		} catch (e) {
+			menuItem.addClass('hide');
+		}
+	};	
+	MenuItems.remove_selected_click = function(menuItem, menu){
+		try {
+			// lightbox only
+			var target = menu.get('currentNode');	// target
+			var lightbox = target.ancestor('section#lightbox').Lightbox;
+			lightbox.clear();
+			lightbox.save();
+			lightbox.updateCount();
+		} catch (e) {}
+		menu.hide();
+	};	
 	// formerly _getPhotoRoll(), currently unused
 	MenuItems.getPhotoRollFromTarget = function(target){
 		if (target instanceof SNAPPI.Y.OverlayContext) {
@@ -255,7 +335,32 @@ var DEFAULT_CFG_contextmenu = 	{
 			r.thumbnail = thumbnail;
 		}
 	};
-	
+
+	MenuItems.batch_rating_beforeShow = function(menuItem, menu){
+		if (!menuItem.Rating) {
+			// add new rating group as LI > DIV
+			var cfg = {
+				v : 0,
+				uuid : false,
+				'applyToBatch' : SNAPPI.lightbox.applyRatingInBatch
+			};
+			SNAPPI.Rating.attach(menuItem, cfg);			
+			menuItem.Rating.node.set('id', 'lbx-rating-group');
+			SNAPPI.Rating.startListeners(menuItem);
+		} else {
+			menuItem.Rating.render(0);
+		}
+	};
+		
+	MenuItems.tag_beforeShow = function(menuItem, menu){
+		if (!menuItem.one('input#lbx-tag-field')) {
+			var self = SNAPPI.lightbox; 
+			self.renderTagInput(menuItem);
+		} else {
+			var input = menuItem.one('input#lbx-tag-field');
+			input.set('value', 'Enter tags').addClass('help');
+		}
+	};	
 	MenuItems.showHiddenShot_beforeShow = function(menuItem, menu){
 		var thumbnail = menu.get('currentNode');	// target
     	try {
@@ -295,6 +400,7 @@ var DEFAULT_CFG_contextmenu = 	{
 	MenuItems.groupAsShot_click = function(menuItem, menu){
 		var thumbnail = menu.get('currentNode');	// target
 		try {
+			// from thumbnail context-menu
 			var audition = thumbnail.audition;
 			var photoRoll = MenuItems.getPhotoRollFromTarget(menu);
 			var shotType = /^Groups/.test(SNAPPI.STATE.controller.name) ? 'Groupshot' : 'Usershot';
@@ -304,10 +410,29 @@ var DEFAULT_CFG_contextmenu = 	{
 				shotType: shotType,
 				uuid: SNAPPI.STATE.controller.xhrFrom.uuid
 			});
-		} catch (e) {
-		}		
+			return;
+		} catch (e) {}	
 	};	
 	
+	MenuItems.lightbox_group_as_shot_click = function(menuItem, menu){
+		try {
+			// from lightbox menuItem
+			var lightbox = menu.get('currentNode').ancestor('#lightbox').Lightbox;
+			var shotType = 'unknown';		// lightbox photos can be from group or user 
+			shotType = /^Groups/.test(SNAPPI.STATE.controller.name) ? 'Groupshot' : 'Usershot';
+			var batch = lightbox.getSelected();
+			// TODO: ??? lightbox.groupAsShot() or 
+			// 		lightbox.Gallery.groupAsShot()??? 
+			lightbox.Gallery.groupAsShot(batch, {
+				menu: menu,
+				loadingNode: menuItem,
+				shotType: shotType,
+				lightbox: lightbox,				// remove hiddenshot-hide from lightbox
+				uuid: SNAPPI.STATE.controller.xhrFrom.uuid
+			});	
+			return;		
+		} catch (e) {}		
+	}
 	
 	MenuItems.removeFromShot_beforeShow = function(menuItem, menu){
 		var thumbnail = menu.get('currentNode');	// target
@@ -417,11 +542,124 @@ var DEFAULT_CFG_contextmenu = 	{
 			SNAPPI.PM.node.onPageGalleryReady(sceneCfg);
 		}
 	};	
+	MenuItems.share_with_this_circle_beforeShow = function(menuItem, menu){
+		if (/^Groups/.test(SNAPPI.STATE.controller.name)==false) {
+			menuItem.addClass('disabled');
+		}
+	};	
+	MenuItems.share_with_this_circle_click = function(menuItem, menu){
+		try {
+			var gid = SNAPPI.STATE.controller.xhrFrom.uuid;	
+			SNAPPI.lightbox.applyShareInBatch(gid);
+		} catch (e) {}
+	};	
+	MenuItems.share_with_circle_click = function(menuItem, menu){
+    		/*
+    		 * create or reuse Dialog
+    		 */
+    		var dialog_ID = 'dialog-select-circles';
+    		var dialog = SNAPPI.Dialog.find[dialog_ID];
+    		if (!dialog) {
+            	dialog = SNAPPI.Dialog.CFG[dialog_ID].load();
+            	var args = {
+            		dialog: dialog,
+            		menu: menu
+            	}
+            	// content for dialog contentBox
+    			var ioCfg = {
+   					uri: subUri,
+					parseContent: false,
+					autoLoad: false,
+					context: dialog,
+					dataType: 'html',
+					arguments: args,    					
+					on: {
+						success: function(e, i,o,args) {
+							args.menu.hide();
+							return o.responseText;
+						}					
+					}
+    			};
+    			ioCfg = SNAPPI.IO.pluginIO_RespondAsJson(ioCfg);
+    			dialog.plug(SNAPPI.Y.Plugin.IO, ioCfg);
+    			// dialog_ID == dialog.get('boundingBox').get('id')
+    			SNAPPI.Dialog.find[dialog_ID] = dialog;
+    		} else {
+    			if (!dialog.get('visible')) {
+    				dialog.setStdModContent('body','<ul />');
+    				dialog.show();
+    			}
+    			dialog.set('title', 'My Circles');
+    		}
+    		
+			// shots are NOT included. get shots via XHR and render
+			var subUri = '/my/groups';
+			dialog.io.set('uri', subUri );
+			var ioCfg = dialog.io.get('cfg');
+			// ioCfg.arguments = args;		// bound on load is ok for now
+			dialog.io.set('cfg', ioCfg);    			
+			dialog.io.start();			
+	};	
+	MenuItems.photo_privacy_click = function(menuItem, menu){
+    		/*
+    		 * create or reuse Dialog
+    		 */
+    		var dialog_ID = 'dialog-select-privacy';
+    		var dialog = SNAPPI.Dialog.find[dialog_ID];
+    		if (!dialog) {
+            	dialog = SNAPPI.Dialog.CFG[dialog_ID].load();
+            	var args = {
+            		dialog: dialog,
+            		menu: menu
+            	}
+            	// content for dialog contentBox
+    			var ioCfg = {
+   					uri: subUri,
+					parseContent: false,
+					autoLoad: false,
+					context: dialog,
+					dataType: 'html',
+					arguments: args,    					
+					on: {
+						success: function(e, i,o,args) {
+							args.menu.hide();
+							// use div#settings-asset-privacy-markup
+							var parent = SNAPPI.Y.Node.create(o.responseText); 
+							var markup = parent.one('div#settings-asset-privacy-markup');
+							return markup.removeClass('hide');
+						}					
+					}
+    			};
+    			ioCfg = SNAPPI.IO.pluginIO_RespondAsJson(ioCfg);
+    			dialog.plug(SNAPPI.Y.Plugin.IO, ioCfg);
+    			// dialog_ID == dialog.get('boundingBox').get('id')
+    			SNAPPI.Dialog.find[dialog_ID] = dialog;
+    		} else {
+    			if (!dialog.get('visible')) {
+    				dialog.setStdModContent('body','<ul />');
+    				dialog.show();
+    			}
+    			dialog.set('title', 'Privacy Settings');
+    		}
+    		
+			// shots are NOT included. get shots via XHR and render
+			var subUri = '/combo/markup/settings';	// placeholder
+			dialog.io.set('uri', subUri );
+			var ioCfg = dialog.io.get('cfg');
+			// ioCfg.arguments = args;		// bound on load is ok for now
+			dialog.io.set('cfg', ioCfg);    			
+			dialog.io.start();			
+	};	
+	
+	
+	
+	
+	
 	/*
 	 * MenuCfgs
 	 */
 	
-	var CFG_Menu_Header = function(){}; CFG_Menu_Header.prototype = {};	
+	var CFG_Menu_Header = function(){}; 
 	/**
 	 * load user shortcuts menu
 	 * @param cfg
@@ -455,7 +693,7 @@ var DEFAULT_CFG_contextmenu = 	{
 		return Menu.getMarkup(MARKUP , callback);
 	};	
 	
-	var CFG_Menu_Pagemaker_Create = function(){}; CFG_Menu_Pagemaker_Create.prototype = {};	
+	var CFG_Menu_Pagemaker_Create = function(){}; 
 	/**
 	 * load Create menu for making PageGalleries from Selected
 	 * @param cfg
@@ -470,7 +708,7 @@ var DEFAULT_CFG_contextmenu = 	{
 		};
 		cfg = Y.merge(defaultCfg, cfg);
 		var CSS_ID = 'menu-pagemaker-selected-create-markup';
-		var TRIGGER = '#createBtn';
+		var TRIGGER = cfg.trigger || '#createBtn';
 		var MARKUP = {
 			id: CSS_ID,
 			selector: '#'+CSS_ID,
@@ -489,7 +727,7 @@ var DEFAULT_CFG_contextmenu = 	{
 		return Menu.getMarkup(MARKUP , callback);
 	};	
 	
-	var CFG_Context_Photoroll = function(){}; CFG_Context_Photoroll.prototype = {};	
+	var CFG_Context_Photoroll = function(){}; 
 	/**
 	 * load Header menu 
 	 * @param cfg
@@ -522,7 +760,7 @@ var DEFAULT_CFG_contextmenu = 	{
 	
 	
 	
-	var CFG_Context_HiddenShot = function(){}; CFG_Context_HiddenShot.prototype = {};	
+	var CFG_Context_HiddenShot = function(){}; 
 	/**
 	 * load Gallery contextmenu for HiddenShots .thumbnail
 	 * @param cfg
@@ -550,6 +788,108 @@ var DEFAULT_CFG_contextmenu = 	{
 	};
 	
 	
+	var CFG_Menu_SelectAll = function(){}; 
+	CFG_Menu_SelectAll.load = function(cfg){
+		var Y = SNAPPI.Y;
+		var defaultCfg = {
+			showOn: 'click',	
+			align: { points:['tl', 'bl'] },
+			init_hidden: true,
+			on: {
+				show: function(e) {
+					var target = this.get('currentNode');
+					if (target.ancestor('#lightbox')) {	// up for lightbox
+						this.set('align', { points:['bl', 'tl']})
+					} else {
+						this.set('align', { points:['tl', 'bl']});	
+					}
+					Menu.menuItem_beforeShow(e.target);
+				}
+			}
+		};
+		cfg = Y.merge(defaultCfg, cfg);
+		var CSS_ID = 'menu-select-all-markup';
+		var TRIGGER = cfg.trigger || 'li.select-all a.menu-open';
+		var MARKUP = {
+			id: CSS_ID,
+			selector: '#'+CSS_ID,
+			container: Y.one('#markup'),
+			uri: '/combo/markup/selectAll',
+			end: null
+		};
+		
+		// reuse, if found
+		if (Menu.find[CSS_ID]) 
+			return Menu.find[CSS_ID];
+
+		var callback = function(){
+			Menu.initContextMenu(MARKUP, TRIGGER, cfg);
+		};
+		return Menu.getMarkup(MARKUP , callback);
+	};	
+		
+	var CFG_Menu_Lightbox_Organize = function(){}; 
+	/**
+	 * load organize menu for lightbox
+	 * @param cfg
+	 * @return
+	 */
+	CFG_Menu_Lightbox_Organize.load = function(cfg){
+		var Y = SNAPPI.Y;
+		var defaultCfg = {
+			showOn: 'click',	
+			align: { points:['bl', 'tl'] },
+			init_hidden: true
+		};
+		cfg = Y.merge(defaultCfg, cfg);
+		var CSS_ID = 'menu-lightbox-organize-markup';
+		var TRIGGER = cfg.trigger || 'section#lightbox ul.menu-trigger li.organize';
+		var MARKUP = {
+			id: CSS_ID,
+			selector: '#'+CSS_ID,
+			container: Y.one('#markup'),
+			uri: '/combo/markup/lightbox',
+			end: null
+		};
+		
+		// reuse, if found
+		if (Menu.find[CSS_ID]) 
+			return Menu.find[CSS_ID];
+
+		var callback = function(){
+			Menu.initContextMenu(MARKUP, TRIGGER, cfg);
+		};
+		return Menu.getMarkup(MARKUP , callback);
+	};		
+	
+	var CFG_Menu_Lightbox_Share = function(){}; 
+	CFG_Menu_Lightbox_Share.load = function(cfg){
+		var Y = SNAPPI.Y;
+		var defaultCfg = {
+			showOn: 'click',	
+			align: { points:['bl', 'tl'] },
+			init_hidden: true
+		};
+		cfg = Y.merge(defaultCfg, cfg);
+		var CSS_ID = 'menu-lightbox-share-markup';
+		var TRIGGER = cfg.trigger || 'section#lightbox ul.menu-trigger li.share';
+		var MARKUP = {
+			id: CSS_ID,
+			selector: '#'+CSS_ID,
+			container: Y.one('#markup'),
+			uri: '/combo/markup/lightbox',
+			end: null
+		};
+		
+		// reuse, if found
+		if (Menu.find[CSS_ID]) 
+			return Menu.find[CSS_ID];
+
+		var callback = function(){
+			Menu.initContextMenu(MARKUP, TRIGGER, cfg);
+		};
+		return Menu.getMarkup(MARKUP , callback);
+	};	
 	
 	// SNAPPI.MenuAUI
 	Menu.CFG = {
@@ -557,6 +897,9 @@ var DEFAULT_CFG_contextmenu = 	{
 		'contextmenu-photoroll-markup': CFG_Context_Photoroll,
 		'contextmenu-hiddenshot-markup': CFG_Context_HiddenShot,
 		'menu-pagemaker-selected-create-markup': CFG_Menu_Pagemaker_Create, 
+		'menu-select-all-markup': CFG_Menu_SelectAll,
+		'menu-lightbox-organize-markup': CFG_Menu_Lightbox_Organize,
+		'menu-lightbox-share-markup': CFG_Menu_Lightbox_Share,
 		end: null
 	};
 	
